@@ -1,0 +1,23 @@
+FROM alpine:3.12
+
+RUN apk -U upgrade && \
+	apk add --no-cache \
+    bash \
+    openssl && \
+    apk add pure-ftpd --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted --no-cache && \
+    apk add telegraf --repository http://dl-3.alpinelinux.org/alpine/edge/community/ --allow-untrusted --no-cache && \
+    mkdir /etc/telegraf/ && \
+    adduser -D -g admin admin && \
+    echo "admin:password" | chpasswd && \
+    mkdir -p /etc/ssl/private && \
+    chmod 777 /etc/ssl/private && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 -subj "/C=US/ST=a/L=a/O=a/OU=a/CN=bjacob" -keyout /etc/ssl/private/pure-ftpd.pem -out /etc/ssl/private/pure-ftpd.pem && \
+    chmod 600 /etc/ssl/private/pure-ftpd.pem
+
+COPY srcs/telegraf.conf /etc/telegraf/telegraf.conf
+
+EXPOSE 21
+
+ENTRYPOINT (telegraf --config /etc/telegraf/telegraf.conf &) && /usr/sbin/pure-ftpd -Y 2 -p 30000:30004 -P MINIKUBE_IP
+
+# -Y 2 refuses connections that aren't using SSL/TLS security mechanisms, including anonymous ones.
